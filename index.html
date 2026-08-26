@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>WebRTC P2P 螢幕直播間</title>
+    <!-- 引入 PeerJS 用於處理信令交換 -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2 { margin-bottom: 10px; color: #38bdf8; }
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 700px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        input, button {
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: #fff;
+            font-size: 16px;
+        }
+        input { flex: 1; min-width: 200px; }
+        button {
+            background: #0284c7;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background: #0369a1; }
+        button.stop { background: #dc2626; }
+        button.stop:hover { background: #b91c1c; }
+        video {
+            width: 100%;
+            max-height: 450px;
+            background: #000;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        #status {
+            font-weight: bold;
+            color: #fbbf24;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>🎥 P2P 瀏覽器螢幕直播</h2>
+
+    <div class="card">
+        <div class="control-group">
+            <label for="roomInput">頻道名稱：</label>
+            <input type="text" id="roomInput" placeholder="例如：my-live-room-123">
+        </div>
+        <div class="control-group">
+            <button id="startBroadcastBtn" onclick="startBroadcast()">📡 開始直播 (分享螢幕)</button>
+            <button id="joinBtn" onclick="joinBroadcast()">👁️ 加入接收直播</button>
+            <button id="stopBtn" class="stop" onclick="stopAll()" style="display:none;">❌ 離開/停止</button>
+        </div>
+        <div id="status">狀態：尚未連線</div>
+    </div>
+
+    <div class="card">
+        <h3>畫面預覽 / 播放區</h3>
+        <video id="remoteVideo" autoplay playsinline controls></video>
+    </div>
+
+    <script>
+        let peer = null;
+        let currentStream = null;
+        let activeCall = null;
+        let broadcasterPeerId = null;
+
+        const statusEl = document.getElementById('status');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const startBtn = document.getElementById('startBroadcastBtn');
+        const joinBtn = document.getElementById('joinBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const roomInput = document.getElementById('roomInput');
+
+        function setStatus(text) {
+            statusEl.innerText = `狀態：${text}`;
+        }
+
+        // 1. 主播端：開始分享螢幕並等待觀眾呼叫
+        async function startBroadcast() {
+            const roomName = roomInput.value.trim();
+            if (!roomName) {
+                alert('請先輸入頻道名稱！');
+                return;
+            }
+
+            try {
+                // 取得螢幕畫面串流
+                currentStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: "always" },
+                    audio: true
+                });
+
+                // 將自己的螢幕畫面先秀在本地預覽
+                remoteVideo.srcObject = currentStream;
+
+                // 使用固定的前綴加上頻道名稱作為 Peer ID
+                const myPeerId = `p2p-screen-live-${roomName}-host`;
+                
+                peer = new Peer(myPeerId);
+
+                peer.on('open', (id) => {
+                    setStatus(`直播中！頻道代碼：${roomName} (等待觀眾連入...)`);
+                    toggleButtons(true);
+                });
+
+                peer.on('error', (err) => {
+                    if (err.type === 'unavailable-id') {
+                        alert('此頻道名稱已經有人在直播了，請換一個名字！');
+                    } else {
+                        alert(`連線錯誤: ${err.type}`);
+                    }
+                    stopAll();
+                });
+
+                // 當有觀眾連進來要求視訊時，把螢幕串流回傳給他
+                peer.on('call', (call) => {
+                    setStatus(`有觀眾連入，正在傳送畫面...`);
+                    call.answer(currentStream);
+                    
+                    call.on('close', () => {
+                        setStatus(`直播中！有觀眾離開了`);
+                    });
+                });
+
+                // 如果主播自己手動關閉瀏覽器的螢幕分享
+                currentStream.getVideoTracks()[0].onended = () => {
+                    stopAll();
+                };
+
+            } catch (err) {
+                console.error(err);
+                alert('無法取得螢幕畫面或權限被拒絕。');
+            }
+        }
+
+        // 2. 觀眾端：加入頻道接收螢幕
+        function joinBroadcast() {
+            const roomName = roomInput.value.trim();
+            if (!roomName) {
+                alert('請先輸入頻道名稱！');
+                return;
+            }
+
+            setStatus('正在尋找直播主...');
+            peer = new Peer(); // 觀眾隨機產生自己的 ID
+
+            peer.on('open', () => {
+                broadcasterPeerId = `p2p-screen-live-${roomName}-host`;
+                setStatus(`正在連線到頻道 [${roomName}]...`);
+
+                // 主動打給主播
+                const emptyStream = new MediaStream(); // 接收端不需要送出自己的畫面
+                const call = peer.call(broadcasterPeerId, emptyStream);
+                activeCall = call;
+
+                call.on('stream', (remoteStream) => {
+                    setStatus(`成功接收直播畫面！ (P2P 直連中)`);
+                    remoteVideo.srcObject = remoteStream;
+                    toggleButtons(true);
+                });
+
+                call.on('close', () => {
+                    setStatus('直播已結束或主播已斷線。');
+                    stopAll();
+                });
+
+                call.on('error', (err) => {
+                    alert('連線失敗，找不到該頻道的直播主或頻道不存在。');
+                    stopAll();
+                });
+            });
+        }
+
+        // 3. 停止與清理
+        function stopAll() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            if (activeCall) {
+                activeCall.close();
+                activeCall = null;
+            }
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+            remoteVideo.srcObject = null;
+            setStatus('已離線');
+            toggleButtons(false);
+        }
+
+        function toggleButtons(isLive) {
+            startBtn.style.display = isLive ? 'none' : 'inline-block';
+            joinBtn.style.display = isLive ? 'none' : 'inline-block';
+            stopBtn.style.display = isLive ? 'inline-block' : 'none';
+            roomInput.disabled = isLive;
+        }
+    </script>
+</body>
+</html>
