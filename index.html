@@ -2,8 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>WebRTC P2P 螢幕直播間 (終極版)</title>
-    <!-- 引入 PeerJS -->
+    <title>純 P2P 螢幕直播間 (強制直連版)</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         body {
@@ -68,23 +67,23 @@
 </head>
 <body>
 
-    <h2>🎥 P2P 瀏覽器螢幕直播 (終極版)</h2>
+    <h2>🔥 純 P2P 瀏覽器螢幕直播</h2>
 
     <div class="card">
         <div class="control-group">
             <label for="roomInput">頻道名稱：</label>
-            <input type="text" id="roomInput" placeholder="例如：my-live-room-999">
+            <input type="text" id="roomInput" placeholder="例如：p2p-room-123">
         </div>
         <div class="control-group">
-            <button id="startBroadcastBtn" onclick="startBroadcast()">📡 開始直播 (分享螢幕)</button>
-            <button id="joinBtn" onclick="joinBroadcast()">👁️ 加入接收直播</button>
-            <button id="stopBtn" class="stop" onclick="stopAll()" style="display:none;">❌ 離開/停止</button>
+            <button id="startBroadcastBtn" onclick="startBroadcast()">📡 開始直播 (P2P 主播)</button>
+            <button id="joinBtn" onclick="joinBroadcast()">👁️ 加入接收 (P2P 觀眾)</button>
+            <button id="stopBtn" class="stop" onclick="stopAll()" style="display:none;">❌ 離線</button>
         </div>
         <div id="status">狀態：尚未連線</div>
     </div>
 
     <div class="card">
-        <h3>畫面預覽 / 播放區</h3>
+        <h3>P2P 影音接收區</h3>
         <video id="remoteVideo" autoplay playsinline controls></video>
     </div>
 
@@ -100,23 +99,16 @@
         const stopBtn = document.getElementById('stopBtn');
         const roomInput = document.getElementById('roomInput');
 
-        // 包含 STUN 與公開免費 TURN 伺服器的設定（突破各種防火牆限制）
-        const peerConfig = {
+        // 多重 STUN 伺服器設定，確保網路打洞成功率最高
+        const p2pConfig = {
             config: {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
-                    { 
-                        urls: 'turn:openrelay.metered.ca:80',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    { 
-                        urls: 'turn:openrelay.metered.ca:443',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    }
-                ]
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun.cloudflare.com:3478' }
+                ],
+                iceTransportPolicy: 'all' // 允許所有候選者進行 P2P 連線
             }
         };
 
@@ -126,88 +118,88 @@
 
         async function startBroadcast() {
             const roomName = roomInput.value.trim();
-            if (!roomName) {
-                alert('請先輸入頻道名稱！');
-                return;
-            }
+            if (!roomName) { alert('請輸入頻道名稱！'); return; }
 
             try {
+                // 擷取螢幕
                 currentStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { cursor: "always" },
+                    video: { cursor: "always", frameRate: 30 },
                     audio: true
                 });
 
                 remoteVideo.srcObject = currentStream;
                 remoteVideo.muted = true;
 
-                const myPeerId = `p2p-live-v2-${roomName}-host`;
-                peer = new Peer(myPeerId, peerConfig);
+                const myPeerId = `p2p-pure-${roomName}-host`;
+                peer = new Peer(myPeerId, p2pConfig);
 
-                peer.on('open', (id) => {
-                    setStatus(`直播中！頻道：${roomName} (等待觀眾連入...)`);
+                peer.on('open', () => {
+                    setStatus(`P2P 主播就緒！頻道：${roomName} (等待接收端呼叫...)`);
                     toggleButtons(true);
                 });
 
                 peer.on('error', (err) => {
-                    if (err.type === 'unavailable-id') {
-                        alert('此頻道名稱已經有人在使用了，請換一個名字！');
-                    } else {
-                        alert(`連線錯誤: ${err.type}`);
-                    }
+                    alert(`PeerJS 錯誤: ${err.type}`);
                     stopAll();
                 });
 
+                // 當觀眾連入並要求打通 P2P 視訊通道時
                 peer.on('call', (call) => {
-                    setStatus(`有觀眾連入，正在建立視訊通道...`);
-                    call.answer(currentStream);
+                    setStatus(`偵測到觀眾連入，正在建立 P2P 直連通道...`);
                     
+                    // 回傳我們的螢幕串流給觀眾
+                    call.answer(currentStream);
+
+                    call.on('stream', (remoteStream) => {
+                        console.log("P2P 雙向通道已建立");
+                    });
+
                     call.on('close', () => {
-                        setStatus(`直播中！有觀眾離開了`);
+                        setStatus(`P2P 頻道：有觀眾斷開連線`);
                     });
                 });
 
-                currentStream.getVideoTracks()[0].onended = () => {
-                    stopAll();
-                };
+                currentStream.getVideoTracks()[0].onended = () => { stopAll(); };
 
             } catch (err) {
                 console.error(err);
-                alert('無法取得螢幕畫面或權限被拒絕。');
+                alert('無法擷取螢幕或權限被拒。');
             }
         }
 
         function joinBroadcast() {
             const roomName = roomInput.value.trim();
-            if (!roomName) {
-                alert('請先輸入頻道名稱！');
-                return;
-            }
+            if (!roomName) { alert('請輸入頻道名稱！'); return; }
 
-            setStatus('正在初始化連線...');
-            peer = new Peer(peerConfig);
+            setStatus('初始化 P2P 接收端...');
+            peer = new Peer(p2pConfig);
 
             peer.on('open', () => {
-                const broadcasterPeerId = `p2p-live-v2-${roomName}-host`;
-                setStatus(`正在連接頻道 [${roomName}]...`);
+                const hostId = `p2p-pure-${roomName}-host`;
+                setStatus(`正在尋找並對接 P2P 主播 [${roomName}]...`);
 
+                // 傳送一個空的 MediaStream（因為觀眾只需要接收，不需要上傳螢幕）
                 const emptyStream = new MediaStream();
-                const call = peer.call(broadcasterPeerId, emptyStream);
+                const call = peer.call(hostId, emptyStream, {
+                    sdpTransform: function (sdp) { return sdp; }
+                });
                 activeCall = call;
 
+                // 核心：當成功收到主播的 P2P 串流時
                 call.on('stream', (remoteStream) => {
-                    setStatus(`成功接收直播畫面！`);
+                    setStatus(`🎉 P2P 直連成功！正在播放畫面`);
                     remoteVideo.srcObject = remoteStream;
                     remoteVideo.muted = false;
                     toggleButtons(true);
                 });
 
                 call.on('close', () => {
-                    setStatus('直播已結束或主播已斷線。');
+                    setStatus('P2P 直播已結束。');
                     stopAll();
                 });
 
                 call.on('error', (err) => {
-                    alert('連線失敗，找不到該頻道的直播主。');
+                    alert('P2P 連線失敗，找不到該頻道的的主播。');
                     stopAll();
                 });
             });
@@ -220,7 +212,7 @@
 
         function stopAll() {
             if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
+                currentStream.getTracks().forEach(t => t.stop());
                 currentStream = null;
             }
             if (activeCall) {
