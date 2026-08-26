@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>WebRTC P2P 螢幕直播間 (修正版)</title>
+    <title>WebRTC P2P 螢幕直播間 (終極版)</title>
     <!-- 引入 PeerJS -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
@@ -68,12 +68,12 @@
 </head>
 <body>
 
-    <h2>🎥 P2P 瀏覽器螢幕直播 (修正版)</h2>
+    <h2>🎥 P2P 瀏覽器螢幕直播 (終極版)</h2>
 
     <div class="card">
         <div class="control-group">
             <label for="roomInput">頻道名稱：</label>
-            <input type="text" id="roomInput" placeholder="例如：my-live-room-888">
+            <input type="text" id="roomInput" placeholder="例如：my-live-room-999">
         </div>
         <div class="control-group">
             <button id="startBroadcastBtn" onclick="startBroadcast()">📡 開始直播 (分享螢幕)</button>
@@ -85,7 +85,7 @@
 
     <div class="card">
         <h3>畫面預覽 / 播放區</h3>
-        <video id="remoteVideo" autoplay playsinline controls muted></video>
+        <video id="remoteVideo" autoplay playsinline controls></video>
     </div>
 
     <script>
@@ -100,13 +100,22 @@
         const stopBtn = document.getElementById('stopBtn');
         const roomInput = document.getElementById('roomInput');
 
-        // 共用的 STUN 伺服器設定（用於 NAT 網路打洞，非常重要）
+        // 包含 STUN 與公開免費 TURN 伺服器的設定（突破各種防火牆限制）
         const peerConfig = {
             config: {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' }
+                    { 
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    { 
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
                 ]
             }
         };
@@ -115,7 +124,6 @@
             statusEl.innerText = `狀態：${text}`;
         }
 
-        // 1. 主播端
         async function startBroadcast() {
             const roomName = roomInput.value.trim();
             if (!roomName) {
@@ -130,9 +138,9 @@
                 });
 
                 remoteVideo.srcObject = currentStream;
-                remoteVideo.muted = true; // 主播自己看自己的畫面要靜音，避免回音
+                remoteVideo.muted = true;
 
-                const myPeerId = `p2p-live-${roomName}-host`;
+                const myPeerId = `p2p-live-v2-${roomName}-host`;
                 peer = new Peer(myPeerId, peerConfig);
 
                 peer.on('open', (id) => {
@@ -149,9 +157,8 @@
                     stopAll();
                 });
 
-                // 當觀眾呼叫時，發送我們的螢幕串流
                 peer.on('call', (call) => {
-                    setStatus(`有觀眾連入，正在建立 P2P 視訊通道...`);
+                    setStatus(`有觀眾連入，正在建立視訊通道...`);
                     call.answer(currentStream);
                     
                     call.on('close', () => {
@@ -169,7 +176,6 @@
             }
         }
 
-        // 2. 觀眾端
         function joinBroadcast() {
             const roomName = roomInput.value.trim();
             if (!roomName) {
@@ -181,18 +187,17 @@
             peer = new Peer(peerConfig);
 
             peer.on('open', () => {
-                const broadcasterPeerId = `p2p-live-${roomName}-host`;
+                const broadcasterPeerId = `p2p-live-v2-${roomName}-host`;
                 setStatus(`正在連接頻道 [${roomName}]...`);
 
-                // 呼叫主播
                 const emptyStream = new MediaStream();
                 const call = peer.call(broadcasterPeerId, emptyStream);
                 activeCall = call;
 
                 call.on('stream', (remoteStream) => {
-                    setStatus(`成功接收直播畫面！ (P2P 直連中)`);
+                    setStatus(`成功接收直播畫面！`);
                     remoteVideo.srcObject = remoteStream;
-                    remoteVideo.muted = false; // 觀眾端可以正常聽聲音
+                    remoteVideo.muted = false;
                     toggleButtons(true);
                 });
 
@@ -202,7 +207,7 @@
                 });
 
                 call.on('error', (err) => {
-                    alert('連線失敗，找不到該頻道的直播主，請確認頻道名稱是否正確或主播是否已開始直播。');
+                    alert('連線失敗，找不到該頻道的直播主。');
                     stopAll();
                 });
             });
@@ -213,7 +218,6 @@
             });
         }
 
-        // 3. 停止與清理
         function stopAll() {
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
