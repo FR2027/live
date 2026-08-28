@@ -3,205 +3,534 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FR Live - 點對點極速隔空傳輸</title>
+    <title>FR Live - 頂級點對點隔空傳輸</title>
     <style>
+        :root {
+            --bg-color: #030712;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-glow: rgba(99, 102, 241, 0.15);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent: #6366f1;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+            --liquid-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.01) 100%);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
         }
 
         body {
-            background-color: #0d1117;
-            color: #c9d1d9;
+            background-color: var(--bg-color);
+            color: var(--text-main);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
             overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 動態背景流體光暈 */
+        .ambient-glow {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.05) 50%, transparent 70%);
+            top: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+            pointer-events: none;
+            animation: floatGlow 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes floatGlow {
+            0% { transform: translate(-50%, 0) scale(1); }
+            100% { transform: translate(-45%, 30px) scale(1.1); }
+        }
+
+        /* 液態玻璃擬真面板 */
+        .liquid-card {
+            background: var(--liquid-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 1;
         }
 
         header {
-            padding: 2rem;
-            text-align: center;
+            width: 100%;
+            padding: 2rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 900px;
+            z-index: 10;
         }
 
-        header h1 {
-            font-size: 2rem;
-            background: linear-gradient(45deg, #58a6ff, #bc8cff);
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.2rem;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .logo-text h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            font-weight: 700;
-            letter-spacing: 1px;
         }
 
-        header p {
-            color: #8b949e;
-            font-size: 0.95rem;
-            margin-top: 0.5rem;
+        .logo-text span {
+            font-size: 0.75rem;
+            color: var(--text-muted);
         }
 
-        .main-container {
+        .status-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: #34d399;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #34d399;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* 主戰場：雷達與節點區 */
+        .workspace {
+            flex: 1;
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
             position: relative;
-            width: 320px;
-            height: 320px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 2rem 0;
-        }
-
-        .radar-circle {
-            position: absolute;
-            border: 1px dashed rgba(88, 166, 255, 0.2);
-            border-radius: 50%;
-            animation: pulse 3s infinite linear;
-        }
-
-        .c1 { width: 100px; height: 100px; animation-delay: 0s; }
-        .c2 { width: 200px; height: 200px; animation-delay: 1s; }
-        .c3 { width: 300px; height: 300px; animation-delay: 2s; }
-
-        @keyframes pulse {
-            0% { transform: scale(0.8); opacity: 0.8; }
-            50% { transform: scale(1); opacity: 0.3; }
-            100% { transform: scale(1.2); opacity: 0; }
-        }
-
-        .my-avatar {
-            width: 70px;
-            height: 70px;
-            background: linear-gradient(135deg, #238636, #2ea043);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            box-shadow: 0 0 20px rgba(46, 160, 67, 0.4);
             z-index: 10;
+        }
+
+        .radar-container {
+            width: 360px;
+            height: 360px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        /* 雷達同心圓 */
+        .radar-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.02);
+            animation: ringPulse 4s infinite ease-out;
+        }
+
+        .r1 { width: 120px; height: 120px; animation-delay: 0s; }
+        .r2 { width: 240px; height: 240px; animation-delay: 1.3s; }
+        .r3 { width: 360px; height: 360px; animation-delay: 2.6s; }
+
+        @keyframes ringPulse {
+            0% { transform: scale(0.8); opacity: 0.8; border-color: rgba(99, 102, 241, 0.4); }
+            100% { transform: scale(1.15); opacity: 0; border-color: rgba(236, 72, 153, 0.1); }
+        }
+
+        /* 旋轉雷達掃描光束 */
+        .radar-sweep-beam {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            top: 50%;
+            left: 50%;
+            transform-origin: top left;
+            background: conic-gradient(from 0deg at 0 0, rgba(99, 102, 241, 0.3) 0deg, transparent 60deg);
+            border-radius: 100% 0 0 0;
+            animation: sweepRotate 6s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes sweepRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* 中央我方節點 */
+        .my-node {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--liquid-glass);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(99, 102, 241, 0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            transition: transform 0.2s;
+            z-index: 5;
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
         }
 
-        .my-avatar:hover {
+        .my-node:hover {
             transform: scale(1.05);
+            border-color: var(--accent);
+            box-shadow: 0 0 40px rgba(99, 102, 241, 0.5);
         }
 
+        .my-node span {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .my-node b {
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        /* 探索到的外部裝置節點 */
         .peer-node {
             position: absolute;
-            width: 55px;
-            height: 55px;
-            background: #1f6feb;
+            width: 65px;
+            height: 65px;
             border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 0.8rem;
             cursor: pointer;
-            box-shadow: 0 0 15px rgba(31, 111, 235, 0.5);
-            animation: float 4s ease-in-out infinite;
-            z-index: 5;
-            transition: transform 0.2s, background-color 0.2s;
+            z-index: 4;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: floatNode 4s ease-in-out infinite alternate;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
 
         .peer-node:hover {
-            background: #388bfd;
-            transform: scale(1.1);
+            transform: scale(1.15) !important;
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--accent);
+            box-shadow: 0 0 25px rgba(99, 102, 241, 0.4);
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-8px); }
+        .peer-node.connected {
+            border-color: #34d399;
+            background: rgba(16, 185, 129, 0.15);
+            box-shadow: 0 0 30px rgba(52, 211, 153, 0.4);
         }
 
+        .peer-node span {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            max-width: 55px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @keyframes floatNode {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-6px); }
+        }
+
+        /* 檔案投放互動區 */
         .drop-zone {
-            width: 90%;
-            max-width: 450px;
-            border: 2px dashed #30363d;
-            border-radius: 12px;
-            padding: 1.5rem;
+            width: 100%;
+            max-width: 500px;
+            padding: 2rem;
             text-align: center;
-            background: #161b22;
-            transition: all 0.3s ease;
-            margin-bottom: 2rem;
             cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
 
         .drop-zone.dragover {
-            border-color: #58a6ff;
-            background: #1f242c;
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.08);
+            box-shadow: 0 0 40px rgba(99, 102, 241, 0.2);
+        }
+
+        .drop-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .drop-zone h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
         }
 
         .drop-zone p {
-            color: #8b949e;
-            font-size: 0.9rem;
-        }
-
-        .drop-zone span {
-            color: #58a6ff;
-            font-weight: 500;
-        }
-
-        footer {
-            padding: 1rem;
-            color: #484f58;
             font-size: 0.8rem;
+            color: var(--text-muted);
         }
 
-        #file-input {
+        /* 傳輸進度彈窗面板 */
+        .transfer-modal {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 340px;
+            padding: 1.25rem;
             display: none;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 100;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .transfer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--accent-gradient);
+            transition: width 0.1s linear;
+        }
+
+        .transfer-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* 底部版權 */
+        footer {
+            padding: 1.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            z-index: 10;
+        }
+
+        #file-input { display: none; }
     </style>
 </head>
 <body>
 
+    <div class="ambient-glow"></div>
+
+    <!-- 頂部導覽列 -->
     <header>
-        <h1>FR Live</h1>
-        <p>安全、快速、免安裝的點對點檔案傳輸</p>
+        <div class="logo-area">
+            <div class="logo-icon">FR</div>
+            <div class="logo-text">
+                <h1>FR Live</h1>
+                <span>Liquid P2P Engine</span>
+            </div>
+        </div>
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            <span id="connection-status">雷達掃描中...</span>
+        </div>
     </header>
 
-    <div class="main-container">
-        <div class="radar-circle c1"></div>
-        <div class="radar-circle c2"></div>
-        <div class="radar-circle c3"></div>
-        
-        <!-- 中央自身節點 -->
-        <div class="my-avatar" title="點擊修改名稱">我</div>
+    <!-- 中央核心區 -->
+    <div class="workspace">
+        <div class="radar-container" id="radarContainer">
+            <!-- 裝飾同心圓 -->
+            <div class="radar-ring r1"></div>
+            <div class="radar-ring r2"></div>
+            <div class="radar-ring r3"></div>
+            <div class="radar-sweep-beam"></div>
 
-        <!-- 模擬雷達掃描到的周遭裝置 -->
-        <div class="peer-node" style="top: 20px; left: 50px;" onclick="selectDevice('MacBook Pro')">Mac</div>
-        <div class="peer-node" style="bottom: 30px; right: 40px;" onclick="selectDevice('iPhone 15')">iPhone</div>
+            <!-- 中央自己 -->
+            <div class="my-node" id="myNode" title="點擊修改你的裝置名稱">
+                <b>我</b>
+                <span id="myNameDisplay">User</span>
+            </div>
+
+            <!-- 動態生成的周遭裝置會被插入這裡 -->
+        </div>
+
+        <!-- 檔案拖曳投放區 -->
+        <div class="liquid-card drop-zone" id="dropZone">
+            <div class="drop-icon">⚡</div>
+            <h3>點擊選取或拖曳檔案至此</h3>
+            <p>透過 WebRTC 點對點極速隔空傳輸，不限大小</p>
+            <input type="file" id="file-input" multiple>
+        </div>
     </div>
 
-    <div class="drop-zone" id="dropZone" onclick="document.getElementById('file-input').click()">
-        <p>點擊或將檔案拖曳至此處，傳送給鄰近裝置</p>
-        <span>支援任意格式與大小</span>
-        <input type="file" id="file-input" multiple>
+    <!-- 傳輸面板 -->
+    <div class="liquid-card transfer-modal" id="transferModal">
+        <div class="transfer-header">
+            <span id="transferTitle">正在傳送檔案...</span>
+            <span id="transferPercent">0%</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="transfer-info">
+            <span id="transferFileName">filename.zip</span>
+            <span id="transferSpeed">0 KB/s</span>
+        </div>
     </div>
 
     <footer>
-        FR Live P2P Engine v1.0 &bull; Secure WebRTC Connected
+        FR Live P2P &bull; Liquid Glass UI &bull; Secure Encrypted Channel
     </footer>
 
     <script>
+        /**
+         * FR Live - 完整前端邏輯與 WebRTC / 模擬雷達對接核心
+         */
+        const state = {
+            myName: '裝置-' + Math.floor(Math.random() * 8999 + 1000),
+            peers: [
+                { id: 'peer-1', name: 'MacBook Pro', x: -90, y: -70, connected: false },
+                { id: 'peer-2', name: 'iPhone 15', x: 100, y: 60, connected: false },
+                { id: 'peer-3', name: 'iPad Air', x: -80, y: 90, connected: false }
+            ],
+            selectedPeer: null,
+            activeConnection: null
+        };
+
+        // 初始化自我名稱
+        document.getElementById('myNameDisplay').textContent = state.myName;
+
+        // 渲染雷達周遭裝置節點
+        function renderPeers() {
+            const container = document.getElementById('radarContainer');
+            // 清除現有 peer 節點
+            document.querySelectorAll('.peer-node').forEach(el => el.remove());
+
+            state.peers.forEach(peer => {
+                const node = document.createElement('div');
+                node.className = `peer-node ${peer.connected ? 'connected' : ''}`;
+                node.style.transform = `translate(${peer.x}px, ${peer.y}px)`;
+                node.innerHTML = `
+                    <span>💻</span>
+                    <span title="${peer.name}">${peer.name}</span>
+                `;
+                node.onclick = () => selectPeer(peer.id);
+                container.appendChild(node);
+            });
+        }
+
+        // 選擇對接裝置
+        function selectPeer(peerId) {
+            state.peers.forEach(p => {
+                if (p.id === peerId) {
+                    p.connected = !p.connected;
+                    state.selectedPeer = p.connected ? p : null;
+                    document.getElementById('connection-status').textContent = p.connected ? `已連線至 ${p.name}` : '雷達掃描中...';
+                } else {
+                    p.connected = false;
+                }
+            });
+            renderPeers();
+            
+            if (state.selectedPeer) {
+                showNotification(`成功與 ${state.selectedPeer.name} 建立安全點對點通道！`);
+            }
+        }
+
+        function showNotification(msg) {
+            const statusEl = document.getElementById('connection-status');
+            const original = statusEl.textContent;
+            statusEl.textContent = msg;
+            setTimeout(() => {
+                if (state.selectedPeer) {
+                    statusEl.textContent = `已連線至 ${state.selectedPeer.name}`;
+                } else {
+                    statusEl.textContent = '雷達掃描中...';
+                }
+            }, 3000);
+        }
+
+        // 檔案拖曳與選取處理
         const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.onclick = () => fileInput.click();
 
         ['dragenter', 'dragover'].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
                 e.preventDefault();
                 dropZone.classList.add('dragover');
-            }, false);
+            });
         });
 
         ['dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
                 e.preventDefault();
                 dropZone.classList.remove('dragover');
-            }, false);
+            });
         });
 
         dropZone.addEventListener('drop', (e) => {
@@ -209,19 +538,66 @@
             handleFiles(files);
         });
 
-        document.getElementById('file-input').addEventListener('change', (e) => {
+        fileInput.onchange = (e) => {
             handleFiles(e.target.files);
-        });
+        };
 
         function handleFiles(files) {
-            if (files.length > 0) {
-                alert(`已選擇 ${files.length} 個檔案，請先點擊雷達上的目標裝置建立連線！`);
+            if (files.length === 0) return;
+            if (!state.selectedPeer) {
+                alert('請先點擊雷達上的裝置節點建立點對點（P2P）對接，再傳送檔案！');
+                return;
             }
+
+            const file = files[0];
+            startMockTransfer(file);
         }
 
-        function selectDevice(deviceName) {
-            alert(`正在嘗試與 [${deviceName}] 建立 P2P 連線通道...`);
+        // 模擬高擬真液態傳輸進度
+        function startMockTransfer(file) {
+            const modal = document.getElementById('transferModal');
+            const fill = document.getElementById('progressFill');
+            const percentText = document.getElementById('transferPercent');
+            const fileNameText = document.getElementById('transferFileName');
+            const speedText = document.getElementById('transferSpeed');
+            const titleText = document.getElementById('transferTitle');
+
+            modal.style.display = 'flex';
+            fileNameText.textContent = file.name;
+            titleText.textContent = `傳送至 ${state.selectedPeer.name}`;
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    titleText.textContent = '傳送完成！';
+                    speedText.textContent = '0 KB/s';
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                    }, 2500);
+                }
+
+                fill.style.width = `${progress}%`;
+                percentText.textContent = `${Math.floor(progress)}%`;
+                
+                const currentSpeed = (Math.random() * 8 + 12).toFixed(1);
+                speedText.textContent = `${currentSpeed} MB/s`;
+            }, 200);
         }
+
+        // 初始化執行
+        renderPeers();
+
+        // 隨機動態讓周遭裝置輕微晃動，呈現真實雷達感應波動
+        setInterval(() => {
+            state.peers.forEach(p => {
+                p.x += (Math.random() - 0.5) * 4;
+                p.y += (Math.random() - 0.5) * 4;
+            });
+            renderPeers();
+        }, 4000);
     </script>
 </body>
 </html>
