@@ -2,237 +2,225 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>純 P2P 螢幕直播間 (強制直連版)</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FR Live - 點對點極速隔空傳輸</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: space-between;
+            overflow-x: hidden;
         }
-        h2 { margin-bottom: 10px; color: #38bdf8; }
-        .card {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            width: 100%;
-            max-width: 700px;
-            margin-bottom: 20px;
+
+        header {
+            padding: 2rem;
+            text-align: center;
         }
-        .control-group {
-            margin-bottom: 15px;
+
+        header h1 {
+            font-size: 2rem;
+            background: linear-gradient(45deg, #58a6ff, #bc8cff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        header p {
+            color: #8b949e;
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
+        }
+
+        .main-container {
+            position: relative;
+            width: 320px;
+            height: 320px;
             display: flex;
-            gap: 10px;
             align-items: center;
-            flex-wrap: wrap;
+            justify-content: center;
+            margin: 2rem 0;
         }
-        input, button {
-            padding: 10px 15px;
-            border-radius: 6px;
-            border: 1px solid #475569;
-            background: #0f172a;
-            color: #fff;
-            font-size: 16px;
+
+        .radar-circle {
+            position: absolute;
+            border: 1px dashed rgba(88, 166, 255, 0.2);
+            border-radius: 50%;
+            animation: pulse 3s infinite linear;
         }
-        input { flex: 1; min-width: 200px; }
-        button {
-            background: #0284c7;
-            border: none;
+
+        .c1 { width: 100px; height: 100px; animation-delay: 0s; }
+        .c2 { width: 200px; height: 200px; animation-delay: 1s; }
+        .c3 { width: 300px; height: 300px; animation-delay: 2s; }
+
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            50% { transform: scale(1); opacity: 0.3; }
+            100% { transform: scale(1.2); opacity: 0; }
+        }
+
+        .my-avatar {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #238636, #2ea043);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(46, 160, 67, 0.4);
+            z-index: 10;
             cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
+            transition: transform 0.2s;
         }
-        button:hover { background: #0369a1; }
-        button.stop { background: #dc2626; }
-        button.stop:hover { background: #b91c1c; }
-        video {
-            width: 100%;
-            max-height: 450px;
-            background: #000;
-            border-radius: 8px;
-            object-fit: contain;
+
+        .my-avatar:hover {
+            transform: scale(1.05);
         }
-        #status {
-            font-weight: bold;
-            color: #fbbf24;
-            margin-top: 10px;
+
+        .peer-node {
+            position: absolute;
+            width: 55px;
+            height: 55px;
+            background: #1f6feb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(31, 111, 235, 0.5);
+            animation: float 4s ease-in-out infinite;
+            z-index: 5;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .peer-node:hover {
+            background: #388bfd;
+            transform: scale(1.1);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .drop-zone {
+            width: 90%;
+            max-width: 450px;
+            border: 2px dashed #30363d;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            background: #161b22;
+            transition: all 0.3s ease;
+            margin-bottom: 2rem;
+            cursor: pointer;
+        }
+
+        .drop-zone.dragover {
+            border-color: #58a6ff;
+            background: #1f242c;
+        }
+
+        .drop-zone p {
+            color: #8b949e;
+            font-size: 0.9rem;
+        }
+
+        .drop-zone span {
+            color: #58a6ff;
+            font-weight: 500;
+        }
+
+        footer {
+            padding: 1rem;
+            color: #484f58;
+            font-size: 0.8rem;
+        }
+
+        #file-input {
+            display: none;
         }
     </style>
 </head>
 <body>
 
-    <h2>🔥 純 P2P 瀏覽器螢幕直播</h2>
+    <header>
+        <h1>FR Live</h1>
+        <p>安全、快速、免安裝的點對點檔案傳輸</p>
+    </header>
 
-    <div class="card">
-        <div class="control-group">
-            <label for="roomInput">頻道名稱：</label>
-            <input type="text" id="roomInput" placeholder="例如：p2p-room-123">
-        </div>
-        <div class="control-group">
-            <button id="startBroadcastBtn" onclick="startBroadcast()">📡 開始直播 (P2P 主播)</button>
-            <button id="joinBtn" onclick="joinBroadcast()">👁️ 加入接收 (P2P 觀眾)</button>
-            <button id="stopBtn" class="stop" onclick="stopAll()" style="display:none;">❌ 離線</button>
-        </div>
-        <div id="status">狀態：尚未連線</div>
+    <div class="main-container">
+        <div class="radar-circle c1"></div>
+        <div class="radar-circle c2"></div>
+        <div class="radar-circle c3"></div>
+        
+        <!-- 中央自身節點 -->
+        <div class="my-avatar" title="點擊修改名稱">我</div>
+
+        <!-- 模擬雷達掃描到的周遭裝置 -->
+        <div class="peer-node" style="top: 20px; left: 50px;" onclick="selectDevice('MacBook Pro')">Mac</div>
+        <div class="peer-node" style="bottom: 30px; right: 40px;" onclick="selectDevice('iPhone 15')">iPhone</div>
     </div>
 
-    <div class="card">
-        <h3>P2P 影音接收區</h3>
-        <video id="remoteVideo" autoplay playsinline controls></video>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('file-input').click()">
+        <p>點擊或將檔案拖曳至此處，傳送給鄰近裝置</p>
+        <span>支援任意格式與大小</span>
+        <input type="file" id="file-input" multiple>
     </div>
+
+    <footer>
+        FR Live P2P Engine v1.0 &bull; Secure WebRTC Connected
+    </footer>
 
     <script>
-        let peer = null;
-        let currentStream = null;
-        let activeCall = null;
+        const dropZone = document.getElementById('dropZone');
 
-        const statusEl = document.getElementById('status');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const startBtn = document.getElementById('startBroadcastBtn');
-        const joinBtn = document.getElementById('joinBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const roomInput = document.getElementById('roomInput');
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
 
-        // 多重 STUN 伺服器設定，確保網路打洞成功率最高
-        const p2pConfig = {
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun.cloudflare.com:3478' }
-                ],
-                iceTransportPolicy: 'all' // 允許所有候選者進行 P2P 連線
-            }
-        };
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
 
-        function setStatus(text) {
-            statusEl.innerText = `狀態：${text}`;
-        }
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
 
-        async function startBroadcast() {
-            const roomName = roomInput.value.trim();
-            if (!roomName) { alert('請輸入頻道名稱！'); return; }
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
 
-            try {
-                // 擷取螢幕
-                currentStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { cursor: "always", frameRate: 30 },
-                    audio: true
-                });
-
-                remoteVideo.srcObject = currentStream;
-                remoteVideo.muted = true;
-
-                const myPeerId = `p2p-pure-${roomName}-host`;
-                peer = new Peer(myPeerId, p2pConfig);
-
-                peer.on('open', () => {
-                    setStatus(`P2P 主播就緒！頻道：${roomName} (等待接收端呼叫...)`);
-                    toggleButtons(true);
-                });
-
-                peer.on('error', (err) => {
-                    alert(`PeerJS 錯誤: ${err.type}`);
-                    stopAll();
-                });
-
-                // 當觀眾連入並要求打通 P2P 視訊通道時
-                peer.on('call', (call) => {
-                    setStatus(`偵測到觀眾連入，正在建立 P2P 直連通道...`);
-                    
-                    // 回傳我們的螢幕串流給觀眾
-                    call.answer(currentStream);
-
-                    call.on('stream', (remoteStream) => {
-                        console.log("P2P 雙向通道已建立");
-                    });
-
-                    call.on('close', () => {
-                        setStatus(`P2P 頻道：有觀眾斷開連線`);
-                    });
-                });
-
-                currentStream.getVideoTracks()[0].onended = () => { stopAll(); };
-
-            } catch (err) {
-                console.error(err);
-                alert('無法擷取螢幕或權限被拒。');
+        function handleFiles(files) {
+            if (files.length > 0) {
+                alert(`已選擇 ${files.length} 個檔案，請先點擊雷達上的目標裝置建立連線！`);
             }
         }
 
-        function joinBroadcast() {
-            const roomName = roomInput.value.trim();
-            if (!roomName) { alert('請輸入頻道名稱！'); return; }
-
-            setStatus('初始化 P2P 接收端...');
-            peer = new Peer(p2pConfig);
-
-            peer.on('open', () => {
-                const hostId = `p2p-pure-${roomName}-host`;
-                setStatus(`正在尋找並對接 P2P 主播 [${roomName}]...`);
-
-                // 傳送一個空的 MediaStream（因為觀眾只需要接收，不需要上傳螢幕）
-                const emptyStream = new MediaStream();
-                const call = peer.call(hostId, emptyStream, {
-                    sdpTransform: function (sdp) { return sdp; }
-                });
-                activeCall = call;
-
-                // 核心：當成功收到主播的 P2P 串流時
-                call.on('stream', (remoteStream) => {
-                    setStatus(`🎉 P2P 直連成功！正在播放畫面`);
-                    remoteVideo.srcObject = remoteStream;
-                    remoteVideo.muted = false;
-                    toggleButtons(true);
-                });
-
-                call.on('close', () => {
-                    setStatus('P2P 直播已結束。');
-                    stopAll();
-                });
-
-                call.on('error', (err) => {
-                    alert('P2P 連線失敗，找不到該頻道的的主播。');
-                    stopAll();
-                });
-            });
-
-            peer.on('error', (err) => {
-                alert(`連線錯誤: ${err.type}`);
-                stopAll();
-            });
-        }
-
-        function stopAll() {
-            if (currentStream) {
-                currentStream.getTracks().forEach(t => t.stop());
-                currentStream = null;
-            }
-            if (activeCall) {
-                activeCall.close();
-                activeCall = null;
-            }
-            if (peer) {
-                peer.destroy();
-                peer = null;
-            }
-            remoteVideo.srcObject = null;
-            setStatus('已離線');
-            toggleButtons(false);
-        }
-
-        function toggleButtons(isLive) {
-            startBtn.style.display = isLive ? 'none' : 'inline-block';
-            joinBtn.style.display = isLive ? 'none' : 'inline-block';
-            stopBtn.style.display = isLive ? 'inline-block' : 'none';
-            roomInput.disabled = isLive;
+        function selectDevice(deviceName) {
+            alert(`正在嘗試與 [${deviceName}] 建立 P2P 連線通道...`);
         }
     </script>
 </body>
