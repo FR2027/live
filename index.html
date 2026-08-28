@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FR Live - 頂級點對點隔空傳輸中心</title>
+    <title>FR Live - 跨裝置 P2P 傳輸中心</title>
+    <!-- 引入 PeerJS 雲端信令庫 -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
             --bg-deep: #020617;
             --glass-bg: rgba(255, 255, 255, 0.03);
             --glass-border: rgba(255, 255, 255, 0.08);
-            --glass-glow: rgba(99, 102, 241, 0.2);
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
             --accent: #6366f1;
@@ -17,622 +18,152 @@
             --liquid-surface: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.01) 100%);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            user-select: none;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; user-select: none; }
+        body { background-color: var(--bg-deep); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
 
-        body {
-            background-color: var(--bg-deep);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-            overflow-x: hidden;
-            position: relative;
-        }
-
-        /* 頂級動態光暈背景 */
-        .ambient-mesh {
-            position: absolute;
-            width: 700px;
-            height: 700px;
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.06) 40%, transparent 70%);
-            top: -250px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 0;
-            pointer-events: none;
-            animation: meshDrift 10s ease-in-out infinite alternate;
-        }
-
-        @keyframes meshDrift {
-            0% { transform: translate(-50%, 0) scale(1); }
-            100% { transform: translate(-45%, 40px) scale(1.15); }
-        }
-
-        /* 液態玻璃擬真容器 */
         .liquid-glass {
             background: var(--liquid-surface);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
             border: 1px solid var(--glass-border);
             border-radius: 28px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            position: relative;
-            z-index: 1;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
         }
 
-        header {
-            width: 100%;
-            padding: 2rem 2.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            max-width: 1100px;
-            z-index: 10;
-        }
+        header { width: 100%; padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; max-width: 900px; }
+        .logo-area { display: flex; align-items: center; gap: 0.75rem; }
+        .logo-icon { width: 40px; height: 40px; background: var(--accent-gradient); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+        .logo-text h1 { font-size: 1.2rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .logo-text span { font-size: 0.75rem; color: var(--text-muted); }
 
-        .logo-area {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
+        .status-badge { padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.75rem; display: flex; align-items: center; gap: 0.4rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); color: #34d399; }
+        .status-dot { width: 6px; height: 6px; background: #34d399; border-radius: 50%; box-shadow: 0 0 8px #34d399; }
 
-        .logo-icon {
-            width: 46px;
-            height: 46px;
-            background: var(--accent-gradient);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 1.3rem;
-            box-shadow: 0 0 25px rgba(99, 102, 241, 0.5);
-        }
+        .workspace { flex: 1; width: 100%; max-width: 900px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; gap: 1.5rem; }
+        
+        .connect-box { display: flex; gap: 0.5rem; width: 100%; max-width: 400px; }
+        .connect-box input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.75rem 1rem; color: white; outline: none; }
+        .connect-box button { background: var(--accent); border: none; border-radius: 12px; padding: 0 1.25rem; color: white; font-weight: 600; cursor: pointer; }
 
-        .logo-text h1 {
-            font-size: 1.4rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+        .radar-container { width: 300px; height: 300px; position: relative; display: flex; align-items: center; justify-content: center; }
+        .my-node { width: 75px; height: 75px; border-radius: 50%; background: var(--liquid-surface); border: 2px solid var(--accent); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5; }
+        .my-node b { font-size: 0.8rem; }
+        .my-node span { font-size: 0.6rem; color: var(--text-muted); }
 
-        .logo-text span {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
+        .drop-zone { width: 100%; max-width: 450px; padding: 2rem; text-align: center; cursor: pointer; border: 2px dashed rgba(255,255,255,0.12); border-radius: 20px; }
+        .drop-zone:hover { border-color: var(--accent); background: rgba(99, 102, 241, 0.05); }
 
-        .status-badge {
-            padding: 0.5rem 1rem;
-            border-radius: 30px;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.25);
-            color: #34d399;
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: #34d399;
-            border-radius: 50%;
-            box-shadow: 0 0 10px #34d399;
-            animation: pulseDot 2s infinite;
-        }
-
-        @keyframes pulseDot {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.9); }
-        }
-
-        /* 主戰場配置 */
-        .workspace {
-            flex: 1;
-            width: 100%;
-            max-width: 1100px;
-            display: grid;
-            grid-template-columns: 1fr 380px;
-            gap: 2rem;
-            padding: 1.5rem 2.5rem;
-            align-items: center;
-            z-index: 10;
-        }
-
-        @media (max-width: 900px) {
-            .workspace { grid-template-columns: 1fr; justify-items: center; }
-        }
-
-        /* 高科技雷達掃描核心區 */
-        .radar-box {
-            width: 100%;
-            height: 440px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .radar-container {
-            width: 380px;
-            height: 380px;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .radar-ring {
-            position: absolute;
-            border-radius: 50%;
-            border: 1px dashed rgba(99, 102, 241, 0.25);
-            animation: ringExpand 4s infinite linear;
-        }
-
-        .r1 { width: 120px; height: 120px; animation-delay: 0s; }
-        .r2 { width: 250px; height: 250px; animation-delay: 1.3s; }
-        .r3 { width: 380px; height: 380px; animation-delay: 2.6s; }
-
-        @keyframes ringExpand {
-            0% { transform: scale(0.7); opacity: 0.9; border-color: rgba(99, 102, 241, 0.5); }
-            100% { transform: scale(1.15); opacity: 0; border-color: rgba(236, 72, 153, 0.1); }
-        }
-
-        .radar-sweep {
-            position: absolute;
-            width: 190px;
-            height: 190px;
-            top: 50%;
-            left: 50%;
-            transform-origin: top left;
-            background: conic-gradient(from 0deg at 0 0, rgba(99, 102, 241, 0.4) 0deg, transparent 60deg);
-            border-radius: 100% 0 0 0;
-            animation: sweepSpin 5s linear infinite;
-            pointer-events: none;
-        }
-
-        @keyframes sweepSpin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        /* 中央自身節點 */
-        .my-node {
-            width: 85px;
-            height: 85px;
-            border-radius: 50%;
-            background: var(--liquid-surface);
-            backdrop-filter: blur(12px);
-            border: 2px solid var(--accent);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 6;
-            box-shadow: 0 0 35px rgba(99, 102, 241, 0.4);
-            cursor: pointer;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .my-node:hover { transform: scale(1.08); }
-        .my-node b { font-size: 0.9rem; font-weight: 700; }
-        .my-node span { font-size: 0.65px; color: var(--text-muted); margin-top: 2px; }
-
-        /* 動態偵測到的真實設備節點 */
-        .peer-node {
-            position: absolute;
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.04);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            z-index: 5;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            animation: nodeFloat 4s ease-in-out infinite alternate;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-        }
-
-        .peer-node:hover {
-            transform: scale(1.15) !important;
-            background: rgba(99, 102, 241, 0.25);
-            border-color: var(--accent);
-            box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
-        }
-
-        .peer-node.connected {
-            border-color: #34d399;
-            background: rgba(16, 185, 129, 0.2);
-            box-shadow: 0 0 35px rgba(52, 211, 153, 0.5);
-        }
-
-        .peer-node span.icon { font-size: 1.1rem; }
-        .peer-node span.name { font-size: 0.65rem; color: var(--text-muted); max-width: 55px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-        @keyframes nodeFloat {
-            0% { transform: translateY(0px); }
-            100% { transform: translateY(-8px); }
-        }
-
-        /* 控制與檔案傳輸面板 */
-        .control-panel {
-            width: 100%;
-            height: 440px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 2rem;
-        }
-
-        .panel-title h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
-        .panel-title p { font-size: 0.8rem; color: var(--text-muted); }
-
-        .drop-zone {
-            width: 100%;
-            height: 200px;
-            border: 2px dashed rgba(255, 255, 255, 0.12);
-            border-radius: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.01);
-        }
-
-        .drop-zone:hover, .drop-zone.dragover {
-            border-color: var(--accent);
-            background: rgba(99, 102, 241, 0.06);
-            box-shadow: inset 0 0 20px rgba(99, 102, 241, 0.1);
-        }
-
-        .drop-zone .icon {
-            font-size: 2.2rem;
-            margin-bottom: 0.5rem;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .drop-zone span { font-size: 0.85rem; font-weight: 500; }
-        .drop-zone small { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
-
-        .device-list-info {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
-
-        /* 傳輸進度浮動彈窗 */
-        .transfer-overlay {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 360px;
-            padding: 1.5rem;
-            display: none;
-            flex-direction: column;
-            gap: 1rem;
-            z-index: 100;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
-            animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes slideUpModal {
-            from { transform: translateY(40px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .transfer-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-
-        .progress-track {
-            width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.06);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            width: 0%;
-            height: 100%;
-            background: var(--accent-gradient);
-            transition: width 0.1s linear;
-        }
-
-        .transfer-details {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        footer {
-            padding: 1.5rem;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            letter-spacing: 0.5px;
-            z-index: 10;
-        }
-
+        footer { padding: 1rem; font-size: 0.7rem; color: var(--text-muted); }
         #file-input { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="ambient-mesh"></div>
-
-    <!-- 頂部導覽列 -->
     <header>
         <div class="logo-area">
             <div class="logo-icon">FR</div>
             <div class="logo-text">
                 <h1>FR Live</h1>
-                <span>Hyper P2P Radar Engine</span>
+                <span>True Cross-Device P2P</span>
             </div>
         </div>
         <div class="status-badge">
             <div class="status-dot"></div>
-            <span id="global-status">正在尋找鄰近裝置...</span>
+            <span id="connection-status">連線伺服器中...</span>
         </div>
     </header>
 
-    <!-- 核心工作區 -->
     <div class="workspace">
-        <!-- 雷達掃描面板 -->
-        <div class="liquid-glass radar-box">
-            <div class="radar-container" id="radarContainer">
-                <div class="radar-ring r1"></div>
-                <div class="radar-ring r2"></div>
-                <div class="radar-ring r3"></div>
-                <div class="radar-sweep"></div>
-                
-                <div class="my-node" id="myNode">
-                    <b>我</b>
-                    <span id="myNameLabel">裝置</span>
-                </div>
-                <!-- 動態雷達節點渲染於此 -->
+        <!-- 跨裝置配對輸入框 -->
+        <div class="connect-box">
+            <input type="text" id="targetPeerId" placeholder="輸入對方顯示的代號進行對接">
+            <button onclick="connectToPeer()">對接</button>
+        </div>
+
+        <div class="radar-container">
+            <div class="my-node">
+                <b>我的代號</b>
+                <span id="myIdDisplay" style="font-size:0.5rem; word-break: break-all; padding:0 5px;">生成中</span>
             </div>
         </div>
 
-        <!-- 檔案控制面板 -->
-        <div class="liquid-glass control-panel">
-            <div class="panel-title">
-                <h2>隔空檔案傳輸</h2>
-                <p id="targetStatusText">請先點擊雷達上的裝置進行安全對接</p>
-            </div>
-
-            <div class="drop-zone" id="dropZone">
-                <div class="icon">⚡</div>
-                <span>點擊或拖曳檔案至此發送</span>
-                <small>支援零延遲點對點極速通道</small>
-                <input type="file" id="file-input" multiple>
-            </div>
-
-            <div class="device-list-info" id="deviceCountInfo">
-                目前區域雷達線上裝置：0 台
-            </div>
+        <div class="liquid-card drop-zone" id="dropZone">
+            <h3>點擊或拖曳檔案至此發送</h3>
+            <p id="transferStateText">尚未建立 P2P 通道</p>
+            <input type="file" id="file-input">
         </div>
     </div>
 
-    <!-- 傳輸浮動視窗 -->
-    <div class="liquid-glass transfer-overlay" id="transferModal">
-        <div class="transfer-header">
-            <span id="transferTitle">準備傳輸...</span>
-            <span id="transferPercent">0%</span>
-        </div>
-        <div class="progress-track">
-            <div class="progress-fill" id="progressFill"></div>
-        </div>
-        <div class="transfer-details">
-            <span id="transferFileName">filename.dat</span>
-            <span id="transferSpeed">0 MB/s</span>
-        </div>
-    </div>
-
-    <footer>
-        FR Live Enterprise Engine &bull; Liquid Glass UI &bull; 100% Real-time Active Discovery
-    </footer>
+    <footer>FR Live Cloud P2P Engine &bull; Powered by WebRTC & PeerJS</footer>
 
     <script>
-        /**
-         * FR Live 旗艦版完整即時點對點通訊與雷達對接邏輯
-         * 結合 BroadcastChannel 實現跨分頁、跨視窗的 100% 可行即時裝置發現
-         */
-        const myId = 'FR-' + Math.floor(Math.random() * 8999 + 1000);
-        document.getElementById('myNameLabel').textContent = myId;
+        // 初始化 PeerJS，自動連線至免費公共信令雲端
+        const peer = new Peer();
+        let conn = null;
 
-        const channel = new BroadcastChannel('fr_live_hyper_network');
-        const peersMap = new Map();
-        let selectedPeerId = null;
+        peer.on('open', (id) => {
+            document.getElementById('myIdDisplay').textContent = id;
+            document.getElementById('connection-status').textContent = '已就緒，可跨裝置連線';
+        });
 
-        // 定期廣播心跳以宣告在線
-        setInterval(() => {
-            channel.postMessage({
-                type: 'HEARTBEAT',
-                id: myId,
-                timestamp: Date.now()
+        // 監聽來自其他裝置的連線請求
+        peer.on('connection', (incomingConn) => {
+            conn = incomingConn;
+            setupConnection();
+            alert(`收到來自 ${conn.peer} 的連線請求！`);
+        });
+
+        // 手動輸入對方的 ID 進行連線
+        function connectToPeer() {
+            const id = document.getElementById('targetPeerId').value.trim();
+            if (!id) return;
+            
+            conn = peer.connect(id);
+            setupConnection();
+        }
+
+        function setupConnection() {
+            conn.on('open', () => {
+                document.getElementById('connection-status').textContent = `已成功對接：${conn.peer}`;
+                document.getElementById('transferStateText').textContent = `通道已建立，隨時可傳檔案`;
             });
-        }, 1200);
 
-        // 監聽廣播頻道
-        channel.onmessage = (event) => {
-            const data = event.data;
-            if (data.id === myId) return;
-
-            if (data.type === 'HEARTBEAT' || data.type === 'ACK') {
-                if (!peersMap.has(data.id)) {
-                    // 隨機分配雷達上的座標位置
-                    const angle = Math.random() * Math.PI * 2;
-                    const distance = 80 + Math.random() * 80;
-                    peersMap.set(data.id, {
-                        id: data.id,
-                        x: Math.cos(angle) * distance,
-                        y: Math.sin(angle) * distance,
-                        lastSeen: Date.now(),
-                        connected: false
-                    });
-                } else {
-                    peersMap.get(data.id).lastSeen = Date.now();
+            conn.on('data', (data) => {
+                if (data.fileBuffer) {
+                    // 收到檔案時自動轉為 Blob 並下載
+                    const blob = new Blob([data.fileBuffer]);
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = data.fileName;
+                    a.click();
+                    alert(`成功接收檔案：${data.fileName}`);
                 }
-
-                if (data.type === 'HEARTBEAT') {
-                    channel.postMessage({ type: 'ACK', id: myId });
-                }
-                updateRadarUI();
-            }
-        };
-
-        // 定期清理離線裝置
-        setInterval(() => {
-            const now = Date.now();
-            let changed = false;
-            peersMap.forEach((peer, id) => {
-                if (now - peer.lastSeen > 4000) {
-                    peersMap.delete(id);
-                    if (selectedPeerId === id) {
-                        selectedPeerId = null;
-                        document.getElementById('targetStatusText').textContent = '已與裝置斷開連線';
-                    }
-                    changed = true;
-                }
-            });
-            if (changed) updateRadarUI();
-        }, 2000);
-
-        // 渲染雷達介面上的裝置節點
-        function updateRadarUI() {
-            const container = document.getElementById('radarContainer');
-            document.querySelectorAll('.peer-node').forEach(el => el.remove());
-
-            document.getElementById('deviceCountInfo').textContent = `目前區域雷達線上裝置：${peersMap.size} 台`;
-            const statusEl = document.getElementById('global-status');
-            if (peersMap.size > 0 && !selectedPeerId) {
-                statusEl.textContent = `雷達已偵測到 ${peersMap.size} 台鄰近裝置`;
-            } else if (peersMap.size === 0) {
-                statusEl.textContent = '正在尋找鄰近裝置... (可開多個分頁測試)';
-            }
-
-            peersMap.forEach(peer => {
-                const node = document.createElement('div');
-                node.className = `peer-node ${peer.id === selectedPeerId ? 'connected' : ''}`;
-                node.style.transform = `translate(${peer.x}px, ${peer.y}px)`;
-                node.innerHTML = `
-                    <span class="icon">💻</span>
-                    <span class="name" title="${peer.id}">${peer.id}</span>
-                `;
-                node.onclick = () => selectPeerDevice(peer.id);
-                container.appendChild(node);
             });
         }
 
-        // 點擊選取對接裝置
-        function selectPeerDevice(id) {
-            peersMap.forEach((p, key) => {
-                if (key === id) {
-                    p.connected = !p.connected;
-                    selectedPeerId = p.connected ? id : null;
-                } else {
-                    p.connected = false;
-                }
-            });
-
-            updateRadarUI();
-
-            const targetText = document.getElementById('targetStatusText');
-            const statusEl = document.getElementById('global-status');
-
-            if (selectedPeerId) {
-                targetText.textContent = `已成功與 [${selectedPeerId}] 建立安全對接通道`;
-                statusEl.textContent = `已連線至 ${selectedPeerId}`;
-            } else {
-                targetText.textContent = '請先點擊雷達上的裝置進行安全對接';
-                statusEl.textContent = '雷達掃描中...';
-            }
-        }
-
-        // 檔案拖曳與傳輸觸發
+        // 檔案傳輸邏輯
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('file-input');
 
         dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => sendFile(e.target.files[0]);
 
-        ['dragenter', 'dragover'].forEach(name => {
-            dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-        });
-        ['dragleave', 'drop'].forEach(name => {
-            dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            if (e.dataTransfer.files.length > 0) processFileTransfer(e.dataTransfer.files[0]);
-        });
-
-        fileInput.onchange = (e) => {
-            if (e.target.files.length > 0) processFileTransfer(e.target.files[0]);
-        };
-
-        function processFileTransfer(file) {
-            if (!selectedPeerId) {
-                alert('請先點擊雷達上出現的裝置節點完成對接！');
+        function sendFile(file) {
+            if (!conn || conn.open === false) {
+                alert('請先在上方輸入對方的代號並完成對接！');
                 return;
             }
 
-            const modal = document.getElementById('transferModal');
-            const fill = document.getElementById('progressFill');
-            const percentText = document.getElementById('transferPercent');
-            const titleText = document.getElementById('transferTitle');
-            const nameText = document.getElementById('transferFileName');
-            const speedText = document.getElementById('transferSpeed');
-
-            modal.style.display = 'flex';
-            nameText.textContent = file.name;
-            titleText.textContent = `正在傳送至 ${selectedPeerId}`;
-
-            let progress = 0;
-            const transferTimer = setInterval(() => {
-                progress += Math.random() * 18;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(transferTimer);
-                    titleText.textContent = '傳送完成！';
-                    speedText.textContent = '0 MB/s';
-                    setTimeout(() => {
-                        modal.style.display = 'none';
-                    }, 2200);
-                }
-
-                fill.style.width = `${progress}%`;
-                percentText.textContent = `${Math.floor(progress)}%`;
-                speedText.textContent = `${(Math.random() * 12 + 25).toFixed(1)} MB/s`;
-            }, 180);
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                conn.send({
+                    fileBuffer: event.target.result,
+                    fileName: file.name
+                });
+                alert(`檔案 ${file.name} 已透過 P2P 成功傳送！`);
+            };
+            reader.readAsArrayBuffer(file);
         }
     </script>
 </body>
