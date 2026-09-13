@@ -3,168 +3,572 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FR Live - 跨裝置 P2P 傳輸中心</title>
-    <!-- 引入 PeerJS 雲端信令庫 -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>FRX OS - Next-Gen Launch Event</title>
     <style>
-        :root {
-            --bg-deep: #020617;
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent: #6366f1;
-            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
-            --liquid-surface: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.01) 100%);
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; user-select: none; }
-        body { background-color: var(--bg-deep); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
-
-        .liquid-glass {
-            background: var(--liquid-surface);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid var(--glass-border);
-            border-radius: 28px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030712;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            color: #fff;
         }
 
-        header { width: 100%; padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; max-width: 900px; }
-        .logo-area { display: flex; align-items: center; gap: 0.75rem; }
-        .logo-icon { width: 40px; height: 40px; background: var(--accent-gradient); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; }
-        .logo-text h1 { font-size: 1.2rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .logo-text span { font-size: 0.75rem; color: var(--text-muted); }
+        /* 畫布與背景 */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
 
-        .status-badge { padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.75rem; display: flex; align-items: center; gap: 0.4rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); color: #34d399; }
-        .status-dot { width: 6px; height: 6px; background: #34d399; border-radius: 50%; box-shadow: 0 0 8px #34d399; }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
 
-        .workspace { flex: 1; width: 100%; max-width: 900px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; gap: 1.5rem; }
-        
-        .connect-box { display: flex; gap: 0.5rem; width: 100%; max-width: 400px; }
-        .connect-box input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.75rem 1rem; color: white; outline: none; }
-        .connect-box button { background: var(--accent); border: none; border-radius: 12px; padding: 0 1.25rem; color: white; font-weight: 600; cursor: pointer; }
+        /* 全局光暈效果 */
+        .ambient-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60vw;
+            height: 60vh;
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.15) 0%, rgba(0, 100, 255, 0.05) 50%, rgba(0,0,0,0) 70%);
+            pointer-events: none;
+            z-index: 2;
+            transition: all 1.5s ease;
+        }
 
-        .radar-container { width: 300px; height: 300px; position: relative; display: flex; align-items: center; justify-content: center; }
-        .my-node { width: 75px; height: 75px; border-radius: 50%; background: var(--liquid-surface); border: 2px solid var(--accent); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5; }
-        .my-node b { font-size: 0.8rem; }
-        .my-node span { font-size: 0.6rem; color: var(--text-muted); }
+        /* UI 層級 */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            padding: 40px;
+        }
 
-        .drop-zone { width: 100%; max-width: 450px; padding: 2rem; text-align: center; cursor: pointer; border: 2px dashed rgba(255,255,255,0.12); border-radius: 20px; }
-        .drop-zone:hover { border-color: var(--accent); background: rgba(99, 102, 241, 0.05); }
+        /* 頂部極簡導覽列 */
+        header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 1s ease;
+        }
 
-        footer { padding: 1rem; font-size: 0.7rem; color: var(--text-muted); }
-        #file-input { display: none; }
+        header.active {
+            opacity: 0.8;
+            transform: translateY(0);
+        }
+
+        .brand-logo {
+            font-weight: 800;
+            letter-spacing: 4px;
+            font-size: 14px;
+            color: #00f0ff;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+        }
+
+        .event-status {
+            font-size: 12px;
+            letter-spacing: 2px;
+            color: #8899a6;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ff3366;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #ff3366;
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        /* 中央 5秒 倒數計時層 */
+        .countdown-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 20;
+            transition: opacity 1s ease, transform 1s ease;
+        }
+
+        .countdown-number {
+            font-size: 120px;
+            font-weight: 900;
+            background: linear-gradient(180deg, #ffffff, #00f0ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+            font-family: monospace;
+        }
+
+        .countdown-container.hidden {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(1.5);
+            pointer-events: none;
+        }
+
+        /* 主標題：FRX OS */
+        .main-title-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            text-align: center;
+            opacity: 0;
+            z-index: 15;
+            transition: all 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+            filter: blur(20px);
+        }
+
+        .main-title-container.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            filter: blur(0px);
+        }
+
+        .glow-text {
+            font-size: 110px;
+            font-weight: 900;
+            letter-spacing: 12px;
+            color: #e6ffff;
+            text-shadow: 
+                0 0 10px #00f0ff,
+                0 0 20px #00f0ff,
+                0 0 40px #00f0ff,
+                0 0 80px #0088ff,
+                0 0 120px #0088ff;
+            font-family: 'Arial Rounded MT Bold', sans-serif;
+        }
+
+        /* 浮動 3D HUD 介面卡片 */
+        .hud-panel {
+            position: absolute;
+            background: rgba(10, 25, 50, 0.4);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 240, 255, 0.1);
+            opacity: 0;
+            transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+        }
+
+        .hud-left {
+            left: 8%;
+            top: 35%;
+            width: 260px;
+            transform: translateX(-50px) rotateY(15deg);
+        }
+
+        .hud-right {
+            right: 8%;
+            top: 35%;
+            width: 260px;
+            transform: translateX(50px) rotateY(-15deg);
+        }
+
+        .hud-panel.show {
+            opacity: 1;
+            transform: translateX(0) rotateY(0deg);
+        }
+
+        .hud-line {
+            height: 4px;
+            background: linear-gradient(90deg, #00f0ff, transparent);
+            margin-bottom: 12px;
+            border-radius: 2px;
+        }
+
+        .hud-graphic {
+            width: 100%;
+            height: 60px;
+            border-left: 2px solid #00f0ff;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hud-wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,240,255,0.2), transparent);
+            animation: wave-move 2s infinite linear;
+        }
+
+        @keyframes wave-move {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0%); }
+        }
+
+        /* 底部進度與章節指示器 */
+        footer {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        footer.active {
+            opacity: 1;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            max-width: 600px;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #0088ff, #00f0ff);
+            box-shadow: 0 0 10px #00f0ff;
+            transition: width 0.1s linear;
+        }
+
+        .time-display {
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: rgba(0, 240, 255, 0.7);
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="logo-area">
-            <div class="logo-icon">FR</div>
-            <div class="logo-text">
-                <h1>FR Live</h1>
-                <span>True Cross-Device P2P</span>
-            </div>
-        </div>
-        <div class="status-badge">
-            <div class="status-dot"></div>
-            <span id="connection-status">連線伺服器中...</span>
-        </div>
-    </header>
-
-    <div class="workspace">
-        <!-- 跨裝置配對輸入框 -->
-        <div class="connect-box">
-            <input type="text" id="targetPeerId" placeholder="輸入對方顯示的代號進行對接">
-            <button onclick="connectToPeer()">對接</button>
-        </div>
-
-        <div class="radar-container">
-            <div class="my-node">
-                <b>我的代號</b>
-                <span id="myIdDisplay" style="font-size:0.5rem; word-break: break-all; padding:0 5px;">生成中</span>
-            </div>
-        </div>
-
-        <div class="liquid-card drop-zone" id="dropZone">
-            <h3>點擊或拖曳檔案至此發送</h3>
-            <p id="transferStateText">尚未建立 P2P 通道</p>
-            <input type="file" id="file-input">
-        </div>
+    <!-- 粒子與 3D 視覺畫布 -->
+    <div id="canvas-container">
+        <canvas id="stage"></canvas>
     </div>
 
-    <footer>FR Live Cloud P2P Engine &bull; Powered by WebRTC & PeerJS</footer>
+    <!-- 背景光影 -->
+    <div class="ambient-glow" id="glow"></div>
+
+    <!-- UI 覆蓋層 -->
+    <div class="ui-layer">
+        <header id="header">
+            <div class="brand-logo">FRX ARCHITECTURE</div>
+            <div class="event-status">
+                <div class="live-dot"></div>
+                <span>GLOBAL LAUNCH EVENT</span>
+            </div>
+        </header>
+
+        <!-- 5秒 倒數 -->
+        <div class="countdown-container" id="countdown-box">
+            <div class="countdown-number" id="countdown">5</div>
+        </div>
+
+        <!-- 核心主角：FRX OS 標題 -->
+        <div class="main-title-container" id="main-title">
+            <div class="glow-text">FRX OS</div>
+        </div>
+
+        <!-- 全息 HUD 卡片 1 (展示中段出現) -->
+        <div class="hud-panel hud-left" id="hud-1">
+            <div class="hud-line"></div>
+            <div class="hud-graphic">
+                <div class="hud-wave"></div>
+            </div>
+        </div>
+
+        <!-- 全息 HUD 卡片 2 (展示中段出現) -->
+        <div class="hud-panel hud-right" id="hud-2">
+            <div class="hud-line" style="background: linear-gradient(270deg, #00f0ff, transparent);"></div>
+            <div class="hud-graphic" style="border-right: 2px solid #00f0ff; border-left: none;">
+                <div class="hud-wave"></div>
+            </div>
+        </div>
+
+        <!-- 底部進度條 -->
+        <footer id="footer">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-fill"></div>
+            </div>
+            <div class="time-display" id="time-text">00:00 / 03:00</div>
+        </footer>
+    </div>
 
     <script>
-        // 初始化 PeerJS，自動連線至免費公共信令雲端
-        const peer = new Peer();
-        let conn = null;
+        // --- 畫布與 Particle 引擎初始化 ---
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d');
 
-        peer.on('open', (id) => {
-            document.getElementById('myIdDisplay').textContent = id;
-            document.getElementById('connection-status').textContent = '已就緒，可跨裝置連線';
-        });
-
-        // 監聽來自其他裝置的連線請求
-        peer.on('connection', (incomingConn) => {
-            conn = incomingConn;
-            setupConnection();
-            alert(`收到來自 ${conn.peer} 的連線請求！`);
-        });
-
-        // 手動輸入對方的 ID 進行連線
-        function connectToPeer() {
-            const id = document.getElementById('targetPeerId').value.trim();
-            if (!id) return;
-            
-            conn = peer.connect(id);
-            setupConnection();
+        let width, height;
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
         }
+        window.addEventListener('resize', resize);
+        resize();
 
-        function setupConnection() {
-            conn.on('open', () => {
-                document.getElementById('connection-status').textContent = `已成功對接：${conn.peer}`;
-                document.getElementById('transferStateText').textContent = `通道已建立，隨時可傳檔案`;
-            });
+        // 粒子陣列
+        const particleCount = 180;
+        const particles = [];
 
-            conn.on('data', (data) => {
-                if (data.fileBuffer) {
-                    // 收到檔案時自動轉為 Blob 並下載
-                    const blob = new Blob([data.fileBuffer]);
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = data.fileName;
-                    a.click();
-                    alert(`成功接收檔案：${data.fileName}`);
-                }
-            });
-        }
-
-        // 檔案傳輸邏輯
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('file-input');
-
-        dropZone.onclick = () => fileInput.click();
-        fileInput.onchange = (e) => sendFile(e.target.files[0]);
-
-        function sendFile(file) {
-            if (!conn || conn.open === false) {
-                alert('請先在上方輸入對方的代號並完成對接！');
-                return;
+        class Particle {
+            constructor() {
+                this.reset();
             }
 
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                conn.send({
-                    fileBuffer: event.target.result,
-                    fileName: file.name
-                });
-                alert(`檔案 ${file.name} 已透過 P2P 成功傳送！`);
-            };
-            reader.readAsArrayBuffer(file);
+            reset() {
+                this.x = (Math.random() - 0.5) * width * 1.5;
+                this.y = (Math.random() - 0.5) * height * 1.5;
+                this.z = Math.random() * 1000;
+                this.size = Math.random() * 2 + 1;
+                this.color = Math.random() > 0.3 ? '#00f0ff' : '#0077ff';
+                this.baseSpeed = Math.random() * 1 + 0.5;
+            }
+
+            update(speedMultiplier) {
+                this.z -= this.baseSpeed * speedMultiplier;
+                if (this.z <= 0) {
+                    this.reset();
+                    this.z = 1000;
+                }
+            }
+
+            draw(mode) {
+                // 3D 透視投影
+                const k = 400 / this.z;
+                const px = this.x * k + width / 2;
+                const py = this.y * k + height / 2;
+
+                if (px < 0 || px > width || py < 0 || py > height) return;
+
+                const alpha = Math.min(1, (1000 - this.z) / 800);
+                
+                ctx.beginPath();
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = alpha;
+
+                if (mode === 'hyper') {
+                    // 超頻光速線條效果
+                    const prevK = 400 / (this.z + 40);
+                    const ppx = this.x * prevK + width / 2;
+                    const ppy = this.y * prevK + height / 2;
+                    
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = this.size * k * 0.8;
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(ppx, ppy);
+                    ctx.stroke();
+                } else {
+                    // 一般球狀粒子
+                    ctx.arc(px, py, this.size * k * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1.0;
+            }
         }
+
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle());
+        }
+
+        // --- 發表會時間軸控制 (總長 180 秒) ---
+        const TOTAL_TIME = 180; // 3分鐘
+        let elapsedTime = 0;
+        let isLaunched = false;
+        let speedMultiplier = 1;
+        let particleRenderMode = 'normal';
+
+        // DOM 元素
+        const countdownEl = document.getElementById('countdown');
+        const countdownBox = document.getElementById('countdown-box');
+        const mainTitle = document.getElementById('main-title');
+        const header = document.getElementById('header');
+        const footer = document.getElementById('footer');
+        const hud1 = document.getElementById('hud-1');
+        const hud2 = document.getElementById('hud-2');
+        const progressFill = document.getElementById('progress-fill');
+        const timeText = document.getElementById('time-text');
+        const glow = document.getElementById('glow');
+
+        // 前 5 秒自動倒數
+        let countdownVal = 5;
+        const countdownTimer = setInterval(() => {
+            countdownVal--;
+            if (countdownVal > 0) {
+                countdownEl.innerText = countdownVal;
+            } else {
+                clearInterval(countdownTimer);
+                launchEvent(); // 5秒到了，開啟正式展示！
+            }
+        }, 1000);
+
+        // 正式發表震撼登場
+        function launchEvent() {
+            isLaunched = true;
+            countdownBox.classList.add('hidden');
+            
+            // 觸發衝擊波/超頻速度
+            speedMultiplier = 25;
+            
+            setTimeout(() => {
+                mainTitle.classList.add('show');
+                header.classList.add('active');
+                footer.classList.add('active');
+                speedMultiplier = 1.5;
+            }, 800);
+        }
+
+        // --- 核心動力渲染迴圈 (Render Loop) ---
+        let lastTimestamp = performance.now();
+
+        function animate(now) {
+            const delta = (now - lastTimestamp) / 1000;
+            lastTimestamp = now;
+
+            if (isLaunched && elapsedTime < TOTAL_TIME) {
+                elapsedTime += delta;
+                updateTimeline(elapsedTime);
+            }
+
+            // 清空畫布
+            ctx.fillStyle = 'rgba(3, 7, 18, 0.3)';
+            ctx.fillRect(0, 0, width, height);
+
+            // 繪製微弱底層網格 (Grid)
+            drawGrid();
+
+            // 更新與繪製粒子
+            particles.forEach(p => {
+                p.update(speedMultiplier);
+                p.draw(particleRenderMode);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // 3D 空間網格
+        let gridOffset = 0;
+        function drawGrid() {
+            gridOffset += speedMultiplier * 0.5;
+            if (gridOffset > 40) gridOffset = 0;
+
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
+            ctx.lineWidth = 1;
+
+            const horizon = height * 0.5;
+
+            // 輻射縱線
+            for (let x = -width; x < width * 2; x += 80) {
+                ctx.beginPath();
+                ctx.moveTo(width / 2, horizon);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+
+            // 透視橫條
+            for (let y = horizon; y < height; y += 15) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+        }
+
+        // --- 3分鐘內容腳本動態控制器 ---
+        function updateTimeline(t) {
+            // UI 進度條更新
+            const progress = (t / TOTAL_TIME) * 100;
+            progressFill.style.width = `${progress}%`;
+
+            const mins = Math.floor(t / 60).toString().padStart(2, '0');
+            const secs = Math.floor(t % 60).toString().padStart(2, '0');
+            timeText.innerText = `${mins}:${secs} / 03:00`;
+
+            // === 階段 1：0:05 - 1:00 (核心亮相與脈動) ===
+            if (t > 5 && t < 60) {
+                const pulse = Math.sin(t * 3) * 0.1 + 1;
+                mainTitle.style.transform = `translate(-50%, -50%) scale(${pulse})`;
+                speedMultiplier = 1 + Math.sin(t) * 0.5;
+            }
+
+            // === 階段 2：1:00 - 2:00 (全息介面 HUD 展現) ===
+            if (t >= 60 && t < 120) {
+                hud1.classList.add('show');
+                hud2.classList.add('show');
+
+                // 標題微微縮小，讓出空間給 HUD
+                mainTitle.style.transform = `translate(-50%, -50%) scale(0.85)`;
+
+                // 背景光暈色調微調
+                glow.style.background = `radial-gradient(circle, rgba(0, 240, 255, 0.25) 0%, rgba(0, 150, 255, 0.1) 50%, rgba(0,0,0,0) 70%)`;
+            }
+
+            // === 階段 3：2:00 - 2:45 (超頻穿梭/高潮展示) ===
+            if (t >= 120 && t < 165) {
+                particleRenderMode = 'hyper';
+                speedMultiplier = 12; // 粒子極速流動
+
+                // 標題呈現高能震顫感
+                const shakeX = (Math.random() - 0.5) * 4;
+                const shakeY = (Math.random() - 0.5) * 4;
+                mainTitle.style.transform = `translate(calc(-50% + ${shakeX}px), calc(-50% + ${shakeY}px)) scale(1.1)`;
+            }
+
+            // === 階段 4：2:45 - 3:00 (完美收尾與品牌沉澱) ===
+            if (t >= 165) {
+                particleRenderMode = 'normal';
+                speedMultiplier = 0.5; // 速度歸於平緩高雅
+
+                hud1.classList.remove('show');
+                hud2.classList.remove('show');
+
+                mainTitle.style.transform = `translate(-50%, -50%) scale(1)`;
+                glow.style.background = `radial-gradient(circle, rgba(0, 240, 255, 0.3) 0%, rgba(0, 240, 255, 0.05) 60%, rgba(0,0,0,0) 80%)`;
+            }
+        }
+
+        // 啟動渲染 Loop
+        requestAnimationFrame(animate);
     </script>
 </body>
 </html>
